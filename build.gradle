@@ -1,0 +1,68 @@
+import org.gradle.internal.os.OperatingSystem
+import org.gradle.nativeplatform.toolchain.internal.msvcpp.VisualStudioLocator;
+import org.gradle.nativeplatform.toolchain.VisualCpp;
+
+import java.nio.file.Files
+import java.nio.file.Paths
+
+plugins {
+    id 'c'
+    id 'java'
+    id 'edu.wpi.first.NativeUtils' version '2020.1.1'
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext.licenseFile = file("$rootDir/LICENSE")
+
+apply from: 'config.gradle'
+
+def outputsFolder = file("$buildDir/allOutputs")
+
+task copyAllOutputs(type: Copy) {
+    destinationDir outputsFolder
+}
+
+build.dependsOn copyAllOutputs
+
+ext.addTaskToCopyAllOutputs = { task ->
+    copyAllOutputs.dependsOn task
+    copyAllOutputs.inputs.file task.archivePath
+    copyAllOutputs.from task.archivePath
+}
+
+model {
+    components {
+        h264dec(NativeLibrarySpec) {
+            sources {
+                c {
+                    source {
+                        srcDirs 'ffmpeg-h264-dec/ffmpeg-src'
+                        include '**/*.c'
+                        exclude '**/*_template.c'
+                    }
+                    exportedHeaders {
+                        srcDirs 'ffmpeg-h264-dec/ffmpeg-src'
+                        include '**/*.h'
+                    }
+                }
+            }
+            binaries.all {
+                if (toolChain in VisualCpp) {
+                    //cCompiler.args '-D_UNICODE', '-DUNICODE', '-DWIN32', '-D_WIN32', '-DSTRICT', '-DWIN32_LEAN_AND_MEAN'
+                } else {
+                    cCompiler.args '-fpermissive', '-w', '-std=c99', '-Wno-implicit-int', '-Wno-implict-function-declaration'
+                }
+            }
+            appendDebugPathToBinaries(binaries)
+        }
+    }
+}
+
+apply from: 'publish.gradle'
+
+wrapper {
+    gradleVersion = '5.4.1'
+}

@@ -1,0 +1,106 @@
+import java.security.MessageDigest
+
+apply plugin: 'maven-publish'
+
+publishing {
+    repositories {
+        maven {
+            url "${System.getProperty('user.home')}/releases/maven/development"
+        }
+        maven {
+            url "${System.getProperty('user.home')}/releases/maven/release"
+        }
+    }
+}
+
+def releaseNumber = 1
+
+def pubVersion = "$releaseNumber"
+
+def outputsFolder = file("$project.buildDir/outputs")
+
+def baseArtifactId = 'h264dec'
+def artifactGroupId = 'edu.wpi.first.thirdparty.frc2020.h264dec'
+def zipBaseName = '_GROUP_edu_wpi_first_thirdparty_frc2020_h264dec_ID_h264dec-cpp_CLS'
+
+def versionFile = file("$outputsFolder/version.txt")
+
+task outputVersions() {
+    description = 'Prints the versions of this to a file for use by the downstream packaging project'
+    group = 'Build'
+    outputs.files(versionFile)
+
+    doFirst {
+        buildDir.mkdir()
+        outputsFolder.mkdir()
+    }
+
+    doLast {
+        versionFile.write pubVersion
+    }
+}
+
+build.dependsOn outputVersions
+copyAllOutputs.dependsOn outputVersions
+copyAllOutputs.inputs.file versionFile
+copyAllOutputs.from versionFile
+
+task cppSourcesZip(type: Zip) {
+    destinationDir = outputsFolder
+    baseName = zipBaseName
+    classifier = "sources"
+
+    from(licenseFile) {
+        into '/'
+    }
+
+    from('ffmpeg-h264-dec/ffmpeg-src') {
+        into '/'
+        include '**/*.c'
+    }
+
+    includeEmptyDirs = false
+}
+
+task cppHeadersZip(type: Zip) {
+    destinationDir = outputsFolder
+    baseName = zipBaseName
+    classifier = "headers"
+
+    from(licenseFile) {
+        into '/'
+    }
+
+    from ('ffmpeg-h264-dec/ffmpeg-src') {
+        into '/'
+        include '**/*.h'
+    }
+
+    includeEmptyDirs = false
+}
+
+build.dependsOn cppHeadersZip
+build.dependsOn cppSourcesZip
+
+addTaskToCopyAllOutputs(cppHeadersZip)
+addTaskToCopyAllOutputs(cppSourcesZip)
+
+model {
+    publishing {
+        def gTaskList = createComponentZipTasks($.components, ['h264dec'], zipBaseName, Zip, project, includeStandardZipFormat)
+
+        publications {
+            cpp(MavenPublication) {
+                gTaskList.each {
+                    artifact it
+                }
+                artifact cppHeadersZip
+                artifact cppSourcesZip
+
+                artifactId = baseArtifactId
+                groupId artifactGroupId
+                version pubVersion
+            }
+        }
+    }
+}

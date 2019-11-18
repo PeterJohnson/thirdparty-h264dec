@@ -1,0 +1,3 @@
+[submodule "ffmpeg-h264-dec"]
+	path = ffmpeg-h264-dec
+	url = https://github.com/wpilibsuite/ffmpeg-h264-dec.git
